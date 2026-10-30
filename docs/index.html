@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LUAD Target Discovery</title>
+<meta name="description" content="Interactive multi-omics drug-target discovery for lung adenocarcinoma: integration, druggability triage and AlphaFold structural assessment.">
+<meta property="og:title" content="LUAD Target Discovery">
+<meta property="og:description" content="From patient omics to a druggable pocket: an interactive lung adenocarcinoma target-discovery pipeline.">
+<meta property="og:image" content="https://bhuvaneshkarthiknilavalagan.github.io/luad-target-discovery/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/3dmol@2.4.0/build/3Dmol-min.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f6f5f2; --surface:#fcfcfb; --surface-2:#efeee9; --line:#dddcd5;
+  --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#83827c;
+  --accent:#2a78d6; --accent-soft:#e3eefb;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --good:#008300; --warn:#c98500; --bad:#e34948;
+  --mol-bg:#fcfcfb;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121211; --surface:#1a1a19; --surface-2:#242422; --line:#33332f;
+    --ink:#f0efec; --ink-2:#c3c2b7; --ink-3:#8f8e86;
+    --accent:#3987e5; --accent-soft:#1c2a3d;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+    --good:#2f9e2f; --warn:#c98500; --bad:#e66767;
+    --mol-bg:#1a1a19;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211; --surface:#1a1a19; --surface-2:#242422; --line:#33332f;
+  --ink:#f0efec; --ink-2:#c3c2b7; --ink-3:#8f8e86;
+  --accent:#3987e5; --accent-soft:#1c2a3d;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+  --good:#2f9e2f; --warn:#c98500; --bad:#e66767;
+  --mol-bg:#1a1a19;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.92em}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+@media (max-width:640px){.wrap{padding:0 16px}}
+
+/* nav */
+header.nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;align-items:center;gap:20px;height:56px}
+.brand{font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand span{color:var(--ink-3);font-weight:500}
+nav.links{display:flex;gap:4px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+nav.links a{color:var(--ink-2);padding:6px 10px;border-radius:8px;font-size:13.5px;font-weight:500;white-space:nowrap}
+nav.links a:hover,nav.links a.on{background:var(--surface-2);color:var(--ink);text-decoration:none}
+.icon-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px;width:34px;height:34px;cursor:pointer;display:grid;place-items:center;flex:none}
+@media (max-width:820px){nav.links{display:none}}
+
+/* hero */
+.hero{padding:64px 0 32px}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(30px,4.6vw,50px);line-height:1.08;letter-spacing:-.025em;margin:10px 0 16px;max-width:860px}
+.lede{font-size:17.5px;color:var(--ink-2);max-width:760px;margin:0}
+.byline{margin-top:18px;color:var(--ink-3);font-size:14px}
+.stack{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.stack span{font:500 12.5px "JetBrains Mono",monospace;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:36px}
+@media (max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.tile b{display:block;font-size:28px;letter-spacing:-.02em;line-height:1.1}
+.tile span{font-size:13px;color:var(--ink-2)}
+
+/* pipeline */
+.pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:40px 0 8px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+@media (max-width:760px){.pipeline{grid-template-columns:1fr 1fr}}
+.step{padding:16px 18px;border-right:1px solid var(--line);color:inherit;position:relative;transition:background .15s}
+.step:last-child{border-right:0}
+.step:hover{background:var(--surface-2);text-decoration:none}
+.step .n{font-size:12px;font-weight:600;color:var(--accent)}
+.step .t{font-weight:600;margin:2px 0}
+.step .d{font-size:13px;color:var(--ink-2)}
+.step .k{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-3);margin-top:6px}
+
+/* sections */
+section{padding:56px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-head .num{font-family:"JetBrains Mono",monospace;color:var(--ink-3);font-size:14px}
+h2{font-size:28px;letter-spacing:-.02em;margin:0;line-height:1.2}
+.sec-lede{color:var(--ink-2);max-width:780px;margin:6px 0 24px}
+h3{font-size:16px;margin:0 0 4px;letter-spacing:-.005em}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);min-width:0}
+.card .sub{font-size:13.5px;color:var(--ink-2);margin:0 0 12px}
+.grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+.grid2.even{grid-template-columns:1fr 1fr}
+@media (max-width:900px){.grid2,.grid2.even{grid-template-columns:1fr}}
+.chart{width:100%;height:440px}
+.chart.short{height:300px}
+.note{font-size:13px;color:var(--ink-3);margin-top:10px}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--ink);font-size:14.5px;margin:16px 0 0}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
+.seg button,.chip{border:0;background:transparent;color:var(--ink-2);font:500 13px Inter,sans-serif;padding:6px 12px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.chip.on{border-color:var(--accent);color:var(--ink);background:var(--accent-soft)}
+.chip i{width:10px;height:10px;border-radius:3px;display:inline-block}
+input.search{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;font:14px Inter,sans-serif;min-width:200px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink-2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend i.sq{border-radius:2px}
+
+/* structure */
+.struct{display:grid;grid-template-columns:1fr 330px;gap:16px}
+@media (max-width:960px){.struct{grid-template-columns:1fr}}
+.viewer-card{padding:0;overflow:hidden;position:relative}
+#mol{width:100%;height:560px;position:relative;background:var(--mol-bg)}
+@media (max-width:640px){#mol{height:420px}}
+.viewer-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.viewer-hint{position:absolute;left:14px;bottom:12px;font-size:12px;color:var(--ink-3);pointer-events:none;background:color-mix(in srgb,var(--mol-bg) 80%,transparent);padding:4px 8px;border-radius:6px}
+.hover-tag{position:absolute;right:14px;bottom:12px;font:500 12.5px "JetBrains Mono",monospace;background:var(--surface);border:1px solid var(--line);padding:5px 9px;border-radius:8px;display:none}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14px;margin:12px 0}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.verdict{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:13px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+.toggle-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.toggle-list label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.toggle-list input{accent-color:var(--accent)}
+.swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--ink-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer;transition:background .12s}
+tbody tr:hover{background:var(--surface-2)}
+td.num{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill.sm{background:color-mix(in srgb,var(--s1) 16%,transparent);color:var(--s1)}
+.pill.ab{background:color-mix(in srgb,var(--s3) 18%,transparent);color:var(--s3)}
+.pill.fw{background:var(--surface-2);color:var(--ink-2)}
+.pill.dp{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.bar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;width:90px;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--s1);border-radius:3px}
+
+/* gallery */
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:760px){.gallery{grid-template-columns:1fr}}
+.fig{cursor:zoom-in;padding:10px;transition:transform .15s}
+.fig:hover{transform:translateY(-2px)}
+.fig img{width:100%;height:190px;object-fit:contain;background:#fff;border-radius:10px;display:block}
+.fig p{margin:10px 4px 2px;font-size:13.5px;color:var(--ink-2)}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:100%;max-height:86vh;background:#fff;border-radius:10px}
+.lightbox p{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#eee;font-size:14px;padding:0 24px}
+
+/* limitations */
+.lims{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (max-width:760px){.lims{grid-template-columns:1fr}}
+.lims .card p{margin:0;color:var(--ink-2);font-size:14.5px}
+.files{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:900px){.files{grid-template-columns:1fr 1fr}}
+.file{display:flex;flex-direction:column;gap:2px;color:inherit}
+.file:hover{text-decoration:none;border-color:var(--accent)}
+.file b{font-size:14.5px} .file span{font-size:13px;color:var(--ink-2)}
+ol.refs{padding-left:20px;color:var(--ink-2);font-size:14px} ol.refs li{margin-bottom:8px}
+footer{padding:48px 0 64px;color:var(--ink-3);font-size:13px}
+
+/* drawer */
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 32px rgba(0,0,0,.15);transform:translateX(102%);transition:transform .25s ease;z-index:40;overflow-y:auto;padding:24px}
+.drawer.open{transform:none}
+.drawer .close{position:absolute;top:16px;right:16px}
+.drawer h3{font-size:26px;letter-spacing:-.02em;margin:4px 0 2px}
+.drawer .tag{font-size:13px;color:var(--ink-2)}
+.drawer .blurb{font-size:14.5px;color:var(--ink);margin:14px 0;line-height:1.55}
+.drawer .sect{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.drawer .sect h4{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:10px;padding:8px 14px;font:600 13.5px Inter,sans-serif;cursor:pointer;margin-top:12px}
+.btn.ghost{background:transparent;color:var(--accent)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:39;display:none}
+.scrim.open{display:block}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <div class="brand">LUAD Target Discovery <span>· from omics to pocket</span></div>
+    <nav class="links" id="navlinks">
+      <a href="#integration">Integration</a>
+      <a href="#triage">Druggability</a>
+      <a href="#structure">Structure</a>
+      <a href="#shortlist">Shortlist</a>
+      <a href="#limits">Limitations</a>
+      <a href="#files">Files</a>
+    </nav>
+    <button class="icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Computational drug-target discovery · Lung adenocarcinoma</div>
+    <h1>Which lung adenocarcinoma genes are worth a drug program?</h1>
+    <p class="lede">A gene earns a place on the shortlist only if three independent filters agree: it is disrupted at the RNA, protein and genetic level in patients, its sequence resembles proteins that have already been drugged, and its predicted structure has a real, confident pocket. This page walks through each filter with the actual data. Click any gene to open its evidence card.</p>
+    <div class="byline">Bhuvanesh Karthik Nilavalagan · Northeastern University</div>
+    <div class="stack"><span>Python</span><span>pandas / SciPy</span><span>CPTAC proteogenomics</span><span>GWAS Catalog</span><span>ESM C embeddings</span><span>scikit-learn</span><span>AlphaFold DB</span><span>fpocket</span><span>Plotly</span><span>3Dmol.js</span></div>
+
+    <div class="tiles">
+      <div class="tile"><b>213</b><span>CPTAC samples (111 tumour, 102 normal)</span></div>
+      <div class="tile"><b>154</b><span>genes with evidence in all three layers</span></div>
+      <div class="tile"><b>73%</b><span>RNA and protein move the same way</span></div>
+      <div class="tile"><b>2</b><span>targets with a confirmed drug pocket</span></div>
+      <div class="tile"><b>0.65 Å</b><span>FGFR2 kinase RMSD vs crystal structure</span></div>
+    </div>
+
+    <div class="pipeline">
+      <a class="step" href="#integration"><div class="n">01</div><div class="t">Multi-omics integration</div><div class="d">RNA + protein + GWAS joined on gene</div><div class="k">154 → top 15</div></a>
+      <a class="step" href="#triage"><div class="n">02</div><div class="t">Druggability triage</div><div class="d">ESM C similarity to drugged proteins</div><div class="k">15 re-ranked</div></a>
+      <a class="step" href="#structure"><div class="n">03</div><div class="t">Structure assessment</div><div class="d">AlphaFold pLDDT, PAE, fpocket</div><div class="k">2 small-molecule leads</div></a>
+      <a class="step" href="#shortlist"><div class="n">04</div><div class="t">Prioritised package</div><div class="d">One call per target for the team</div><div class="k">FGFR2 · CYP1A1 · VWF</div></a>
+    </div>
+  </div>
+
+  <!-- 1. Integration -->
+  <section id="integration">
+    <div class="sec-head"><span class="num">01</span><h2>Multi-omics integration</h2></div>
+    <p class="sec-lede">Each point is one of the 154 harmonised genes, placed by its tumour-vs-normal change in RNA (x) and protein (y). Point size is the strength of its lung adenocarcinoma GWAS association. Genes in the top-right and bottom-left quadrants are <b>concordant</b>; the other two quadrants are where protein disagrees with RNA.</p>
+    <div class="grid2">
+      <div class="card">
+        <div class="controls">
+          <input class="search" id="geneSearch" list="geneList" placeholder="Find a gene… (e.g. BRCA2)">
+          <datalist id="geneList"></datalist>
+          <div class="seg" id="scatterFilter">
+            <button class="on" data-f="all">All 154</button>
+            <button data-f="top">Top 15</button>
+          </div>
+        </div>
+        <div id="scatter" class="chart"></div>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Concordant (112)</span><span><i style="background:var(--s2)"></i>Discordant (42)</span><span>Size = GWAS −log₁₀ p</span></div>
+      </div>
+      <div class="card">
+        <h3>Top 15 by multi-evidence score</h3>
+        <p class="sub">Transcriptomic, proteomic and genomic evidence are rank-normalised and weighted equally, so no single layer's scale dominates.</p>
+        <div id="rankBars" class="chart"></div>
+      </div>
+    </div>
+    <div class="callout"><b>Reading the disagreement.</b> 42 of 154 genes move in opposite directions at RNA and protein level. That is post-transcriptional regulation, not noise. BRCA2 is the clearest case: RNA goes up in tumours, yet protein goes down, consistent with the tight post-synthesis control of DNA-repair proteins.</div>
+  </section>
+
+  <!-- 2. Triage -->
+  <section id="triage">
+    <div class="sec-head"><span class="num">02</span><h2>Druggability triage</h2></div>
+    <p class="sec-lede">Each top-15 sequence was embedded with the ESM C protein language model and compared against a reference panel of proteins with clinical drug history. The classifier was validated with a <b>family-held-out split</b>. A random split looked better, but only because close relatives leaked between train and test. The prior was then blended 60 : 40 with the patient evidence.</p>
+    <div class="grid2 even">
+      <div class="card">
+        <h3>Modality map</h3>
+        <p class="sub">Probability the target resembles a small-molecule target (x) versus an antibody target (y). Click a point for its nearest drugged neighbours.</p>
+        <div id="modality" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>How the ranking moved</h3>
+        <p class="sub">Rank from patient evidence alone (left) to final rank after the tractability prior (right). Hover a line to trace one gene.</p>
+        <div id="slope" class="chart"></div>
+        <div class="legend"><span><i class="sq" style="background:var(--s1)"></i>Moved up</span><span><i class="sq" style="background:var(--s2)"></i>Moved down</span><span><i class="sq" style="background:var(--ink-3)"></i>Unchanged</span></div>
+      </div>
+    </div>
+    <div class="callout">FGFR2 stays at #1. Its closest drugged relative is FGFR1 (cosine 0.99). CYP1A1 climbs from 8 to 5 on its resemblance to CYP17A1. BRCA2 falls from 6 to 12 because nothing in its sequence resembles a drugged protein. This is a statement about drug-discovery history, not physics, so the prior is used as a filter, not a verdict.</div>
+  </section>
+
+  <!-- 3. Structure -->
+  <section id="structure">
+    <div class="sec-head"><span class="num">03</span><h2>Structure assessment</h2></div>
+    <p class="sec-lede">The two strongest small-molecule candidates were taken to AlphaFold. Drag to rotate, scroll to zoom and hover for residue confidence. The green sticks are the <b>real drug molecule from the crystal structure</b>, superposed into the AlphaFold model, so you can see that the predicted pocket is where the drug actually binds.</p>
+
+    <div class="struct">
+      <div class="card viewer-card">
+        <div class="viewer-bar">
+          <div class="seg" id="protSel">
+            <button class="on" data-g="FGFR2">FGFR2</button>
+            <button data-g="CYP1A1">CYP1A1</button>
+          </div>
+          <div class="seg" id="colorSel">
+            <button class="on" data-c="plddt">pLDDT</button>
+            <button data-c="domain">Domains</button>
+            <button data-c="spectrum">N→C</button>
+          </div>
+          <button class="chip" id="spinBtn">⟳ Spin</button>
+          <button class="chip" id="pocketView">◎ Focus pocket</button>
+          <button class="chip" id="resetView">⤢ Whole protein</button>
+        </div>
+        <div id="mol"><div class="viewer-hint">drag · scroll · right-drag to pan</div><div class="hover-tag" id="hoverTag"></div></div>
+      </div>
+      <div class="card" id="structPanel"></div>
+    </div>
+
+    <div class="grid2" style="margin-top:16px">
+      <div class="card">
+        <h3>Per-residue confidence (pLDDT)</h3>
+        <p class="sub">Click any bar to fly the 3D viewer to that residue. Shaded bands are the confident domains found from the PAE matrix.</p>
+        <div id="plddt" class="chart short"></div>
+        <div class="legend"><span><i class="sq" style="background:#0053d6"></i>&gt;90 very high</span><span><i class="sq" style="background:#65cbf3"></i>70–90 confident</span><span><i class="sq" style="background:#ffdb13"></i>50–70 low</span><span><i class="sq" style="background:#ff7d45"></i>&lt;50 very low</span></div>
+      </div>
+      <div class="card">
+        <h3>Predicted aligned error</h3>
+        <p class="sub">Dark = AlphaFold is confident about the relative position of two residues. Off-diagonal light blocks mean domain placement is uncertain.</p>
+        <div id="pae" class="chart short"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Shortlist -->
+  <section id="shortlist">
+    <div class="sec-head"><span class="num">04</span><h2>Prioritised target package</h2></div>
+    <p class="sec-lede">The final call for the discovery team. Click a row for the full evidence card.</p>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr><th>Final rank</th><th>Gene</th><th>Multi-omics</th><th>Tractability</th><th>Structure</th><th>Call</th></tr></thead>
+        <tbody id="shortBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Figures -->
+  <section id="figures">
+    <div class="sec-head"><span class="num">05</span><h2>Static figures</h2></div>
+    <p class="sec-lede">Publication-style versions of the key figures. Click to enlarge.</p>
+    <div class="gallery">
+      <div class="card fig" data-cap="Figure 1. RNA vs protein change for 154 harmonised genes, sized by GWAS strength."><img src="figures/luad_integration_scatter.png" alt="Integration scatter" loading="lazy"><p>Fig 1 · Multi-omics integration</p></div>
+      <div class="card fig" data-cap="Figure 2. Cross-layer evidence overlap: 99 genes cleared significance in all three layers."><img src="figures/venn_diagram.png" alt="Venn diagram" loading="lazy"><p>Fig 2 · Cross-layer overlap</p></div>
+      <div class="card fig" data-cap="Figure 3. Top 15 ranked LUAD targets; BRCA2 and ADAMTS7 are the discordant genes."><img src="figures/ranking_chart.png" alt="Ranking chart" loading="lazy"><p>Fig 3 · Top 15 ranking</p></div>
+    </div>
+  </section>
+
+  <!-- Limitations -->
+  <section id="limits">
+    <div class="sec-head"><span class="num">06</span><h2>Limitations and next experiment</h2></div>
+    <div class="lims">
+      <div class="card"><h3>Convergence is not causation</h3><p>These genes have convergent statistical and structural support. That does not show they drive LUAD, or that a drug against them would work. The GWAS layer also comes from different people than the 213 CPTAC patients.</p></div>
+      <div class="card"><h3>Smoking status is invisible</h3><p>LUAD in smokers and never-smokers is close to two diseases at the molecular level. Averaging across all patients can hide a gene that matters a lot in one group, and may be why several top genes look decreased on average.</p></div>
+      <div class="card"><h3>The tractability prior learns history</h3><p>ESM C learns from past drug programmes. A near-zero score (BRCA2, KRT8, PALM) means "unlike anything drugged so far", not "undruggable". Family-held-out validation keeps that number honest.</p></div>
+      <div class="card"><h3>One structure, one snapshot</h3><p>AlphaFold gives a single apo conformation. It cannot show whether the pocket stays open with real partners, or whether a tumour mutation opens a new one. FGFR2's other domains have no experimental structure to check against.</p></div>
+    </div>
+    <div class="callout"><b>Next experiment.</b> Express FGFR2, confirm the predicted pocket binds a known FGFR inhibitor in solution, then test whether inhibition slows proliferation in a LUAD cell line with the same expression pattern. A positive result moves FGFR2 from computationally convergent to experimentally validated.</div>
+  </section>
+
+  <!-- Files -->
+  <section id="files">
+    <div class="sec-head"><span class="num">07</span><h2>Code and data</h2></div>
+    <div class="files" id="fileGrid"></div>
+    <h3 style="margin-top:32px">References</h3>
+    <ol class="refs">
+      <li>Gillette, M. A. et al. (2020). Proteogenomic characterization reveals therapeutic vulnerabilities in lung adenocarcinoma. <i>Cell</i>. <a href="https://doi.org/10.1016/j.cell.2020.06.013">doi:10.1016/j.cell.2020.06.013</a></li>
+      <li>McKay, J. D. et al. (2008). Lung cancer susceptibility locus at 5p15.33. <i>Nature Genetics</i>. <a href="https://doi.org/10.1038/ng.254">doi:10.1038/ng.254</a></li>
+      <li>James, M. A. et al. (2012). Functional characterization of CLPTM1L as a lung cancer risk candidate gene in the 5p15.33 locus. <i>PLoS ONE</i>. <a href="https://doi.org/10.1371/journal.pone.0036116">doi:10.1371/journal.pone.0036116</a></li>
+      <li>Hukkanen, J. et al. (2002). Expression and regulation of xenobiotic-metabolizing cytochrome P450 enzymes in human lung. <a href="https://doi.org/10.1080/20024091064273">doi:10.1080/20024091064273</a></li>
+      <li>Pacini, L. et al. (2021). Targeting the fibroblast growth factor receptor (FGFR) family in lung cancer. <i>Cells</i>. <a href="https://doi.org/10.3390/cells10051154">doi:10.3390/cells10051154</a></li>
+    </ol>
+  </section>
+</main>
+<footer class="wrap">Data: CPTAC LUAD (cptac package), GWAS Catalog MONDO_0005061, AlphaFold DB, RCSB PDB 3RI1 &amp; 4I8V. Analysis by Bhuvanesh Karthik Nilavalagan.</footer>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"><button class="icon-btn close" id="drawerClose" aria-label="Close">✕</button><div id="drawerBody"></div></aside>
+<div class="lightbox" id="lightbox"><img alt=""><p></p></div>
+
+<script>
+const REPO = "https://github.com/bhuvaneshkarthiknilavalagan/luad-target-discovery";
+const BLURB = {
+  FGFR2:"Receptor tyrosine kinase and the clearest lead. It tops the multi-omics ranking with concordant RNA and protein loss, plus the strongest GWAS signal. Its nearest drugged relative is FGFR1, and AlphaFold shows a confident kinase pocket exactly where the inhibitor 3RH sits in crystal structure 3RI1.",
+  CYP1A1:"Cytochrome P450 that activates tobacco carcinogens in lung tissue, a plausible route from exposure to risk. It is a single, very confident domain (mean pLDDT 95.5). Its best fpocket pocket overlaps 94% of the bound-ligand site in 4I8V.",
+  VWF:"Large secreted blood glycoprotein with strong, concordant loss in tumours. Its tractability profile points to an antibody (p = 0.76), not a small molecule, so it is a different kind of opportunity.",
+  BRCA2:"Discordant: RNA rises in tumours while protein falls, a sign of post-transcriptional control of a DNA-repair protein. It has essentially no resemblance to drugged proteins, so a pathway or synthetic-lethality strategy fits better than direct targeting.",
+  KRT8:"Keratin 8 is strongly up at both RNA and protein level, but it is a structural scaffold with no drugged relatives. Carry it forward and re-screen.",
+  CLPTM1L:"Sits at the replicated 5p15.33 lung-cancer susceptibility locus (McKay 2008; James 2012). It has a moderate small-molecule prior, so carry it forward.",
+  USHBP1:"The largest RNA and protein fold-changes in the top 15, but almost no tractability signal. It dropped from 3 to 6 after the prior.",
+  ADAMTS7:"The other discordant top-15 gene: RNA slightly down, protein up.",
+  SLC12A7:"Solute carrier with a high small-molecule prior (0.85); its transporter family is well drugged. It rose from 12 to 7."
+};
+const CALL = {
+  FGFR2:["sm","Small-molecule lead"], CYP1A1:["sm","Small-molecule lead"], VWF:["ab","Antibody candidate"],
+  KRT8:["fw","Carry forward, re-screen"], CLPTM1L:["fw","Carry forward"], BRCA2:["dp","Pathway strategy"]
+};
+const SHORT = ["FGFR2","CYP1A1","KRT8","CLPTM1L","VWF","BRCA2"];
+const FILES = [
+  ["01 · Multi-omics integration","notebooks/01_multiomics_integration.ipynb","CPTAC RNA + protein, GWAS, scoring"],
+  ["02 · Tractability triage","notebooks/02_tractability_triage.ipynb","ESM C priors, family-held-out CV"],
+  ["03 · Structure assessment","notebooks/03_structure_assessment.ipynb","pLDDT, PAE, RMSD, fpocket"],
+  ["04 · Figures","notebooks/04_figures.ipynb","Static figures from the results"],
+  ["Ranked targets","results/targets_luad_all.csv","All 154 genes with evidence scores"],
+  ["Re-ranked top 15","results/targets_luad_reranked.csv","With small-molecule / antibody priors"],
+  ["Structure calls","results/structure_assessment_luad.csv","Per-target druggability summary"],
+  ["Source code","","Repository on GitHub"]
+];
+const PLDDT_COL = b => b>90?"#0053d6":b>70?"#65cbf3":b>50?"#ffdb13":"#ff7d45";
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let D, M2RANK = {}, W3 = {}, GENE = {};
+
+/* ---------- theme ---------- */
+const themeBtn = document.getElementById("themeBtn");
+try{ const t = localStorage.getItem("theme"); if(t) document.documentElement.dataset.theme = t; }catch(e){}
+themeBtn.onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  try{ localStorage.setItem("theme", document.documentElement.dataset.theme); }catch(e){}
+  drawAll(); if(viewer){ viewer.setBackgroundColor(css("--mol-bg")); }
+};
+
+function layout(extra={}){
+  const ink = css("--ink-2"), grid = css("--line");
+  return Object.assign({
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    font:{family:"Inter, sans-serif", size:12, color:ink},
+    margin:{l:52,r:16,t:10,b:44},
+    xaxis:{gridcolor:grid, zerolinecolor:css("--ink-3"), linecolor:grid},
+    yaxis:{gridcolor:grid, zerolinecolor:css("--ink-3"), linecolor:grid},
+    hoverlabel:{bgcolor:css("--surface"), bordercolor:grid, font:{color:css("--ink"),family:"Inter"}},
+    showlegend:false, dragmode:false
+  }, extra);
+}
+const CFG = {displayModeBar:false, responsive:true};
+
+/* ---------- integration ---------- */
+let scatterMode = "all", highlight = null;
+function drawScatter(){
+  const top = new Set(D.w3.map(r=>r.gene));
+  const pts = D.genes.filter(g => scatterMode==="all" || top.has(g.gene));
+  const series = [[true,"--s1","Concordant"],[false,"--s2","Discordant"]].map(([c,col,name]) => {
+    const p = pts.filter(g=>g.concordant===c);
+    return {
+      type:"scatter", mode:"markers"+(scatterMode==="top"?"+text":""), name,
+      x:p.map(g=>g.rna_lfc), y:p.map(g=>g.prot_lfc), customdata:p.map(g=>g.gene), hovertext:p.map(g=>g.neglog10p.toFixed(1)),
+      text:p.map(g=>g.gene), textposition:"top center", textfont:{size:11,color:css("--ink-2")},
+      marker:{color:css(col), size:p.map(g=>8+Math.sqrt(g.neglog10p)*2.2), opacity:.85, line:{color:css("--surface"),width:1.5}},
+      hovertemplate:"<b>%{customdata}</b><br>RNA log₂FC %{x:.2f}<br>Protein log₂FC %{y:.2f}<br>GWAS −log₁₀p %{hovertext}<extra>"+name+"</extra>"
+    };
+  });
+  if(highlight){
+    const g = GENE[highlight];
+    series.push({type:"scatter",mode:"markers+text",x:[g.rna_lfc],y:[g.prot_lfc],text:[g.gene],textposition:"top center",
+      textfont:{size:13,color:css("--ink")},marker:{size:26,color:"rgba(0,0,0,0)",line:{color:css("--ink"),width:2}},hoverinfo:"skip"});
+  }
+  Plotly.react("scatter", series, layout({
+    xaxis:{...layout().xaxis, title:{text:"RNA log₂ fold-change (tumour / normal)"}},
+    yaxis:{...layout().yaxis, title:{text:"Protein log₂ fold-change"}}
+  }), CFG);
+}
+function drawRank(){
+  const top = D.genes.slice(0,15).slice().reverse();
+  Plotly.react("rankBars", [{
+    type:"bar", orientation:"h", y:top.map(g=>g.gene), x:top.map(g=>g.score), customdata:top.map(g=>g.gene),
+    marker:{color:top.map(g=>css(g.concordant?"--s1":"--s2")), line:{color:css("--surface"),width:2}},
+    hovertemplate:"<b>%{y}</b><br>score %{x:.3f}<extra></extra>"
+  }], layout({margin:{l:72,r:16,t:4,b:40}, bargap:.28,
+    xaxis:{...layout().xaxis, range:[.7,.96], title:{text:"Multi-evidence score"}},
+    yaxis:{...layout().yaxis, gridcolor:"rgba(0,0,0,0)", tickfont:{family:"JetBrains Mono",size:11.5,color:css("--ink")}}
+  }), CFG);
+}
+
+/* ---------- triage ---------- */
+function drawModality(){
+  const w = D.w3;
+  const tone = g => CALL[g]?.[0]==="ab" ? "--s3" : (g==="FGFR2"||g==="CYP1A1") ? "--s1" : "--ink-3";
+  Plotly.react("modality", [{
+    type:"scatter", mode:"markers+text", x:w.map(r=>r.p_sm), y:w.map(r=>r.p_ab), text:w.map(r=>(r.p_sm>.3||r.p_ab>.1||["BRCA2","KRT8"].includes(r.gene))?r.gene:""), customdata:w.map(r=>r.gene),
+    textposition:w.map(r=>({KRT8:"top right",BRCA2:"bottom right",CYP1A1:"bottom center",SLC12A7:"top center",FGFR2:"top center",ADAMTS7:"top right",FRY:"bottom center",FADS2:"top center",CLPTM1L:"bottom center"})[r.gene]||"top center"),
+    textfont:{size:11,color:css("--ink-2")},
+    marker:{size:12,color:w.map(r=>css(tone(r.gene))),line:{color:css("--surface"),width:2}},
+    hovertemplate:"<b>%{customdata}</b><br>small molecule %{x:.2f}<br>antibody %{y:.2f}<extra></extra>"
+  }], layout({
+    xaxis:{...layout().xaxis, range:[-.05,1], title:{text:"p(small-molecule target)"}},
+    yaxis:{...layout().yaxis, range:[-.05,.85], title:{text:"p(antibody target)"}},
+    shapes:[{type:"rect",x0:.5,x1:1,y0:-.05,y1:.85,fillcolor:css("--s1"),opacity:.06,line:{width:0},layer:"below"},
+            {type:"rect",x0:-.05,x1:1,y0:.5,y1:.85,fillcolor:css("--s3"),opacity:.07,line:{width:0},layer:"below"}],
+    annotations:[{x:.98,y:.47,xanchor:"right",yanchor:"top",text:"small-molecule side",showarrow:false,font:{size:11,color:css("--ink-3")}},
+                 {x:-.03,y:.82,xanchor:"left",text:"antibody side",showarrow:false,font:{size:11,color:css("--ink-3")}}]
+  }), CFG);
+}
+let slopeHi = null;
+function drawSlope(){
+  const traces = D.w3.map(r => {
+    const a = M2RANK[r.gene], b = r.rank, d = a-b;
+    const col = d>0 ? css("--s1") : d<0 ? css("--s2") : css("--ink-3");
+    const on = !slopeHi || slopeHi===r.gene;
+    return {type:"scatter", mode:"lines+markers", x:[0,1], y:[a,b], customdata:[r.gene,r.gene],
+      line:{color:col, width: slopeHi===r.gene?4:2}, opacity:on?1:.18, marker:{size:8,color:col},
+      hovertemplate:`<b>${r.gene}</b><br>evidence rank ${a} → final ${b}<extra></extra>`};
+  });
+  const ann = [];
+  D.w3.forEach(r => {
+    ann.push({x:0,y:M2RANK[r.gene],text:`${M2RANK[r.gene]}  ${r.gene}`,xanchor:"right",xshift:-10,showarrow:false,font:{size:11,family:"JetBrains Mono",color:css(slopeHi===r.gene?"--ink":"--ink-2")}});
+    ann.push({x:1,y:r.rank,text:`${r.gene}  ${r.rank}`,xanchor:"left",xshift:10,showarrow:false,font:{size:11,family:"JetBrains Mono",color:css(slopeHi===r.gene?"--ink":"--ink-2")}});
+  });
+  ann.push({x:0,y:-.4,text:"Evidence only",showarrow:false,font:{size:12,color:css("--ink")}},{x:1,y:-.4,text:"Final",showarrow:false,font:{size:12,color:css("--ink")}});
+  Plotly.react("slope", traces, layout({margin:{l:110,r:110,t:16,b:10},
+    xaxis:{visible:false,range:[-.05,1.05]}, yaxis:{visible:false,autorange:"reversed",range:[16,-1]}, annotations:ann, hovermode:"closest"}), CFG);
+}
+
+/* ---------- structure ---------- */
+let viewer=null, model=null, ligModel=null, cur="FGFR2", colorMode="plddt", spinning=false;
+const opts = {lig:true, site:true, kept:false, rejected:false};
+const pdbCache = {};
+const ACC = {FGFR2:"P21802", CYP1A1:"P04798"};
+const DOMCOL = ["--s1","--s2","--s3","--s4","--s5"];
+async function getText(p){ if(!pdbCache[p]) pdbCache[p] = await (await fetch(p)).text(); return pdbCache[p]; }
+function domainOf(g, r){ return D.structures[g].domains.findIndex(([a,b]) => r>=a && r<=b); }
+function applyStyle(){
+  const S = D.structures[cur];
+  const cart = colorMode==="plddt" ? {colorfunc:a=>PLDDT_COL(a.b)}
+    : colorMode==="domain" ? {colorfunc:a=>{const i=domainOf(cur,a.resi); return i<0?"#9a9a94":css(DOMCOL[i%5]);}}
+    : {color:"spectrum"};
+  viewer.setStyle({model:model},{cartoon:{...cart, opacity:1}});
+  if(opts.site) viewer.addStyle({model:model, resi:S.site},{stick:{radius:.16, colorscheme:"grayCarbon"}});
+  viewer.setStyle({model:ligModel}, opts.lig ? {stick:{radius:.25, colorscheme:"greenCarbon"}, sphere:{scale:.22, colorscheme:"greenCarbon"}} : {});
+  viewer.removeAllSurfaces();
+  if(opts.kept) viewer.addSurface($3Dmol.SurfaceType.VDW,{opacity:.55,color:css("--s1")},{model:model,resi:S.kept_pocket});
+  if(opts.rejected && S.rejected_pocket) viewer.addSurface($3Dmol.SurfaceType.VDW,{opacity:.6,color:css("--bad")},{model:model,resi:S.rejected_pocket});
+  viewer.render();
+}
+async function loadProtein(g){
+  cur = g;
+  const [pdb, lig] = await Promise.all([getText(`models/AF-${ACC[g]}.pdb`), getText(`models/${g}_ligands.pdb`)]);
+  if(!viewer){
+    viewer = $3Dmol.createViewer(document.getElementById("mol"), {backgroundColor: css("--mol-bg"), antialias:true});
+  }
+  viewer.clear();
+  model = viewer.addModel(pdb,"pdb"); ligModel = viewer.addModel(lig,"pdb");
+  const tag = document.getElementById("hoverTag");
+  viewer.setHoverable({model:model}, true, a => { if(!a) return; tag.style.display="block"; tag.textContent = `${a.resn} ${a.resi} · pLDDT ${a.b.toFixed(1)}`; }, () => { tag.style.display="none"; });
+  viewer.setClickable({model:model}, true, a => { flyTo(a.resi); });
+  applyStyle(); focusPocket(); renderPanel(); drawPlddt(); drawPae();
+}
+function focusPocket(){ viewer.zoomTo({model:model, resi:D.structures[cur].kept_pocket}, 600); }
+function flyTo(r){
+  viewer.removeAllLabels(); applyStyle();
+  viewer.addStyle({model:model, resi:r},{stick:{radius:.22,colorscheme:"orangeCarbon"}});
+  const a = model.selectedAtoms({resi:r, atom:"CA"})[0];
+  if(a) viewer.addLabel(`${a.resn}${r} · ${a.b.toFixed(0)}`, {position:a, backgroundColor:"#111", backgroundOpacity:.8, fontColor:"#fff", fontSize:12, borderRadius:6});
+  const near = []; for(let i=r-10;i<=r+10;i++) near.push(i);
+  viewer.zoomTo({model:model, resi:near}, 700); viewer.render();
+}
+function renderPanel(){
+  const s = D.struct.find(r=>r.gene===cur), S = D.structures[cur];
+  const lig = cur==="FGFR2" ? "3RH (FGFR inhibitor)" : "BHF + heme";
+  const cov = cur==="FGFR2" ? "100%" : "94%";
+  document.getElementById("structPanel").innerHTML = `
+    <div class="eyebrow">${s.uniprot} · evidence rank ${s.evidence_rank}</div>
+    <h3 style="font-size:24px;margin:4px 0 8px">${cur}</h3>
+    <span class="verdict">● ${s.druggability_call}</span>
+    <dl class="kv">
+      <dt>Mean pLDDT</dt><dd>${(+s.mean_pLDDT).toFixed(1)}</dd>
+      <dt>Residues &lt; 50 pLDDT</dt><dd>${(+s.pct_below_50).toFixed(1)}%</dd>
+      <dt>Confident domains</dt><dd>${s.n_domains}</dd>
+      <dt>Inter-domain PAE</dt><dd>${s.inter_domain_PAE===""?"n/a":(+s.inter_domain_PAE).toFixed(1)+" Å"}</dd>
+      <dt>RMSD vs ${s.pdb_id}</dt><dd>${(+s.rmsd_confident).toFixed(2)} Å</dd>
+      <dt>Best pocket score</dt><dd>${(+s.best_pocket_score).toFixed(3)}</dd>
+      <dt>Ligand-site coverage</dt><dd>${cov}</dd>
+    </dl>
+    <div class="toggle-list">
+      <label><input type="checkbox" data-o="lig" ${opts.lig?"checked":""}><span class="swatch" style="background:#3fbf3f"></span>Crystal ligand · ${lig}</label>
+      <label><input type="checkbox" data-o="site" ${opts.site?"checked":""}><span class="swatch" style="background:#9a9a94"></span>Ligand-contact residues (${S.site.length})</label>
+      <label><input type="checkbox" data-o="kept" ${opts.kept?"checked":""}><span class="swatch" style="background:var(--s1)"></span>fpocket pocket kept (${cur==="FGFR2"?"#50":"#1"})</label>
+      ${S.rejected_pocket?`<label><input type="checkbox" data-o="rejected" ${opts.rejected?"checked":""}><span class="swatch" style="background:var(--bad)"></span>Pocket rejected · pLDDT 63</label>`:""}
+    </div>
+    <p class="note">${cur==="FGFR2"
+      ? "The second-best pocket by geometry (score 0.386) lines a low-confidence region (mean pLDDT 63). Toggle it on: it would have looked promising without the confidence check."
+      : "One rigid, uniformly confident domain. The heme and ligand sit together in the single kept pocket."}
+      Superposition of ${s.pdb_id} onto the model: ${S.align_pairs} Cα pairs, ${S.align_rmsd} Å.</p>`;
+  document.querySelectorAll("#structPanel input").forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; applyStyle(); });
+}
+function drawPlddt(){
+  const S = D.structures[cur], n = S.plddt.length, x = Array.from({length:n},(_,i)=>i+1);
+  const shapes = S.domains.map(([a,b],i) => ({type:"rect",x0:a-.5,x1:b+.5,y0:0,y1:100,fillcolor:css(DOMCOL[i%5]),opacity:.08,line:{width:0},layer:"below"}));
+  [50,70,90].forEach(y => shapes.push({type:"line",x0:0,x1:n,y0:y,y1:y,line:{color:css("--ink-3"),width:.7,dash:"dot"}}));
+  shapes.push({type:"rect",x0:Math.min(...S.site)-.5,x1:Math.max(...S.site)+.5,y0:100,y1:104,fillcolor:"#3fbf3f",line:{width:0}});
+  // Plotly snaps bars to whole pixels, so bin residues until each bar is >= 2px wide
+  const bin = Math.max(1, Math.ceil(n / ((document.getElementById("plddt").clientWidth - 54) / 2)));
+  const bx = [], by = [], lab = [];
+  for(let i=0;i<n;i+=bin){ const seg = S.plddt.slice(i,i+bin); bx.push(i+1+(seg.length-1)/2); by.push(seg.reduce((a,v)=>a+v,0)/seg.length);
+    lab.push(seg.length>1 ? `residues ${i+1}–${i+seg.length}` : `residue ${i+1}`); }
+  const cols = by.map(PLDDT_COL);
+  const traces = [{type:"bar", x:bx, y:by, width:bin, marker:{color:cols, line:{width:0}}, hovertext:lab,
+    hovertemplate:"%{hovertext}<br>pLDDT %{y:.1f}<extra>click to view</extra>"}];
+  Plotly.react("plddt", traces,
+    layout({margin:{l:44,r:10,t:8,b:38}, bargap:0, xaxis:{...layout().xaxis, title:{text:"residue"}, range:[0,n+1]},
+      yaxis:{...layout().yaxis, range:[0,105], title:{text:"pLDDT"}}, shapes,
+      annotations:[{x:(Math.min(...S.site)+Math.max(...S.site))/2,y:104,yanchor:"bottom",text:"drug site",showarrow:false,font:{size:10.5,color:css("--ink-2")}}]}), CFG);
+  const el = document.getElementById("plddt"); el.removeAllListeners?.("plotly_click");
+  el.on("plotly_click", e => { flyTo(Math.round(e.points[0].x)); document.getElementById("mol").scrollIntoView({behavior:"smooth",block:"center"}); });
+}
+function drawPae(){
+  const S = D.structures[cur], b = S.pae_bin, ax = S.pae.map((_,i)=>i*b+b/2+.5);
+  const ramp = ["#0d366b","#184f95","#256abf","#3987e5","#6da7ec","#9ec5f4","#cde2fb"];
+  Plotly.react("pae", [{type:"heatmap", z:S.pae, x:ax, y:ax, zmin:0, zmax:30,
+    colorscale:ramp.map((c,i)=>[i/(ramp.length-1),c]), colorbar:{title:{text:"Å",side:"right"},thickness:10,len:.9,outlinewidth:0},
+    hovertemplate:"residue %{y:.0f} vs %{x:.0f}<br>expected error %{z:.1f} Å<extra></extra>"}],
+    layout({margin:{l:48,r:10,t:8,b:38}, xaxis:{...layout().xaxis,title:{text:"aligned on residue"},gridcolor:"rgba(0,0,0,0)",constrain:"domain"},
+      yaxis:{...layout().yaxis,autorange:"reversed",gridcolor:"rgba(0,0,0,0)",scaleanchor:"x",constrain:"domain"}}), CFG);
+}
+
+/* ---------- shortlist + drawer ---------- */
+function renderShort(){
+  document.getElementById("shortBody").innerHTML = SHORT.map(g => {
+    const w = W3[g], s = D.struct.find(r=>r.gene===g), [k,label] = CALL[g];
+    const mod = w.p_ab > w.p_sm ? `${w.p_ab.toFixed(2)} antibody` : `${w.p_sm.toFixed(2)} small mol.`;
+    return `<tr data-g="${g}"><td class="num mono">#${w.rank}</td><td><b>${g}</b><div class="note" style="margin:0">evidence rank ${M2RANK[g]}</div></td>
+      <td class="num">${GENE[g].score.toFixed(3)}<div class="bar"><i style="width:${GENE[g].score*100}%"></i></div></td>
+      <td class="num">${mod}<div class="bar"><i style="width:${Math.max(w.p_sm,w.p_ab)*100}%;background:var(${w.p_ab>w.p_sm?"--s3":"--s1"})"></i></div></td>
+      <td>${s?`Confirmed pocket · ${s.pdb_id}`:`<span style="color:var(--ink-3)">Not yet assessed</span>`}</td>
+      <td><span class="pill ${k}">${label}</span></td></tr>`;
+  }).join("");
+  document.querySelectorAll("#shortBody tr").forEach(tr => tr.onclick = () => openGene(tr.dataset.g));
+}
+function openGene(g){
+  const G = GENE[g]; if(!G) return;
+  const w = W3[g], s = D.struct.find(r=>r.gene===g);
+  const dir = v => v>0 ? "up" : "down";
+  document.getElementById("drawerBody").innerHTML = `
+    <div class="eyebrow">Evidence card</div>
+    <h3>${g}</h3>
+    <div class="tag">Evidence rank ${M2RANK[g]} of 154${w?` · final rank ${w.rank} of 15`:""} · ${G.concordant?"concordant":"discordant"}</div>
+    ${BLURB[g]?`<p class="blurb">${BLURB[g]}</p>`:""}
+    <div class="sect"><h4>Multi-omics</h4><dl class="kv">
+      <dt>RNA log₂FC</dt><dd>${G.rna_lfc.toFixed(2)} (${dir(G.rna_lfc)})</dd>
+      <dt>Protein log₂FC</dt><dd>${G.prot_lfc.toFixed(2)} (${dir(G.prot_lfc)})</dd>
+      <dt>GWAS −log₁₀ p</dt><dd>${G.neglog10p.toFixed(1)}</dd>
+      <dt>Multi-evidence score</dt><dd>${G.score.toFixed(3)}</dd></dl></div>
+    ${w?`<div class="sect"><h4>Tractability (ESM C)</h4><dl class="kv">
+      <dt>p(small molecule)</dt><dd>${w.p_sm.toFixed(3)}</dd>
+      <dt>p(antibody)</dt><dd>${w.p_ab.toFixed(3)}</dd>
+      <dt>Final blended score</dt><dd>${w.final.toFixed(3)}</dd></dl>
+      <div class="note" style="margin:0">Nearest drugged proteins: <span class="mono">${w.nearest_drug_targets}</span></div></div>`:
+      `<div class="sect"><p class="note" style="margin:0">Outside the top 15, so it was not carried into tractability or structure.</p></div>`}
+    ${s?`<div class="sect"><h4>Structure (AlphaFold)</h4><dl class="kv">
+      <dt>Mean pLDDT</dt><dd>${(+s.mean_pLDDT).toFixed(1)}</dd><dt>RMSD vs ${s.pdb_id}</dt><dd>${s.rmsd_confident} Å</dd>
+      <dt>Best pocket</dt><dd>${s.best_pocket_score} · ${s.best_pocket_verdict}</dd></dl>
+      <button class="btn" id="goStruct">View in 3D →</button></div>`:""}
+    <button class="btn ghost" id="locate">Show on scatter</button>`;
+  document.getElementById("drawer").classList.add("open"); document.getElementById("scrim").classList.add("open");
+  document.getElementById("drawer").setAttribute("aria-hidden","false");
+  document.getElementById("locate").onclick = () => { closeDrawer(); highlight = g; drawScatter(); document.getElementById("integration").scrollIntoView({behavior:"smooth"}); };
+  const gs = document.getElementById("goStruct");
+  if(gs) gs.onclick = () => { closeDrawer(); selectProtein(g); document.getElementById("structure").scrollIntoView({behavior:"smooth"}); };
+}
+function closeDrawer(){ document.getElementById("drawer").classList.remove("open"); document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").setAttribute("aria-hidden","true"); }
+document.getElementById("drawerClose").onclick = closeDrawer; document.getElementById("scrim").onclick = closeDrawer;
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ closeDrawer(); document.getElementById("lightbox").classList.remove("open"); } });
+
+function selectProtein(g){
+  document.querySelectorAll("#protSel button").forEach(b => b.classList.toggle("on", b.dataset.g===g));
+  opts.rejected = false; loadProtein(g);
+}
+
+/* ---------- wiring ---------- */
+function drawAll(){ drawScatter(); drawRank(); drawModality(); drawSlope(); if(model){ drawPlddt(); drawPae(); applyStyle(); } }
+function wire(){
+  ["scatter","rankBars","modality"].forEach(id => document.getElementById(id).on("plotly_click", e => openGene(e.points[0].customdata)));
+  const sl = document.getElementById("slope");
+  sl.on("plotly_hover", e => { slopeHi = e.points[0].customdata; drawSlope(); });
+  sl.on("plotly_unhover", () => { slopeHi = null; drawSlope(); });
+  sl.on("plotly_click", e => openGene(e.points[0].customdata));
+  document.querySelectorAll("#scatterFilter button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#scatterFilter button").forEach(x => x.classList.toggle("on", x===b)); scatterMode = b.dataset.f; drawScatter(); });
+  const search = document.getElementById("geneSearch");
+  document.getElementById("geneList").innerHTML = D.genes.map(g=>`<option value="${g.gene}">`).join("");
+  search.addEventListener("change", () => { const g = search.value.trim().toUpperCase(); if(GENE[g]){ highlight = g; drawScatter(); openGene(g); } });
+  document.querySelectorAll("#protSel button").forEach(b => b.onclick = () => selectProtein(b.dataset.g));
+  document.querySelectorAll("#colorSel button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#colorSel button").forEach(x => x.classList.toggle("on", x===b)); colorMode = b.dataset.c; applyStyle(); });
+  document.getElementById("spinBtn").onclick = e => { spinning = !spinning; viewer.spin(spinning?"y":false, .6); e.currentTarget.classList.toggle("on", spinning); };
+  document.getElementById("pocketView").onclick = () => { viewer.removeAllLabels(); applyStyle(); focusPocket(); };
+  document.getElementById("resetView").onclick = () => { viewer.removeAllLabels(); applyStyle(); viewer.zoomTo({model:model}, 600); };
+  const lb = document.getElementById("lightbox");
+  document.querySelectorAll(".fig").forEach(f => f.onclick = () => { lb.querySelector("img").src = f.querySelector("img").src; lb.querySelector("p").textContent = f.dataset.cap; lb.classList.add("open"); });
+  lb.onclick = () => lb.classList.remove("open");
+  document.getElementById("fileGrid").innerHTML = FILES.map(([t,p,d]) => `<a class="card file" href="${REPO}${p ? "/blob/main/" + p : ""}" target="_blank" rel="noopener"><b>${t}</b><span>${d}</span></a>`).join("");
+  // active nav link
+  const links = [...document.querySelectorAll("#navlinks a")];
+  const io = new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href")==="#"+e.target.id)); }), {rootMargin:"-40% 0px -55% 0px"});
+  document.querySelectorAll("section[id]").forEach(s => io.observe(s));
+  window.addEventListener("resize", () => viewer && viewer.resize());
+}
+
+fetch("data/portfolio.json").then(r => r.json()).then(d => {
+  D = d;
+  D.genes.forEach((g,i) => { M2RANK[g.gene] = i+1; GENE[g.gene] = g; });
+  D.w3.forEach(r => W3[r.gene] = r);
+  drawAll(); renderShort(); wire(); loadProtein("FGFR2");
+});
+</script>
+</body>
+</html>

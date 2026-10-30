@@ -1,0 +1,9 @@
+pandas>=2.3
+numpy>=2.0
+scipy>=1.14
+matplotlib>=3.9
+scikit-learn>=1.5
+cptac>=1.5
+py3Dmol>=2.4
+jupyter
+# fpocket is not on PyPI: conda install -c conda-forge fpocket
